@@ -1,4 +1,3 @@
-# PY130 Exercises
 ### 🔗 How to create a local repository and Link to GitHub (Quick Steps)
 
 1. **Create and enter your project folder:**
@@ -13,10 +12,11 @@ git init
 3. **Create a GitHub repo with same name (empty, no README).**
 
 4. **Link GitHub repo:**
-git remote add origin https://github.com/bucarfer/my_project.git
+easier to copy it from github
 git remote add origin https://github.com/bucarfer/PY130-139
 
 5. **Add and commit files:**
+create a file like a README.md
 git add .
 git commit -m "Initial commit"
 
