@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<h2>Details for {{ user_name }}:</h2>
+<h4>Email address:</h4>
+<p>{{ user.email }}</p>
+<h4>Interests:</h4>
+<p>{{ user.interests | join(", ") }}</p>
+<ul>
+  {% for name in users %}
+    {% if name != user_name %}
+      <li><a href="{{ url_for('user_profile', user_name=name) }}">{{ name }}</a></li>
+    {% endif %}
+  {% endfor %}
+</ul>
+{% endblock %}
