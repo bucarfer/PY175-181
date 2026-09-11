@@ -20,6 +20,16 @@ class ExpenseData():
         finally:
             connection.close()
 
+    def _display_expenses(self, results):
+        for result in results:
+            columns = [
+                str(result["id"]).rjust(3),
+                str(result["created_on"]),
+                str(result["amount"]).rjust(12),
+                str(result["memo"])
+            ]
+            print(" | ".join(columns))
+
     def list_expenses(self):
         # connection = psycopg2.connect(dbname='expenses')
         # try:
@@ -30,14 +40,7 @@ class ExpenseData():
                                     ORDER BY created_on""")
                 expenses = cursor.fetchall()
 
-        for expense in expenses:
-            columns = [
-                str(expense["id"]).rjust(3),
-                str(expense["created_on"]),
-                str(expense["amount"]).rjust(12),
-                str(expense["memo"])
-            ]
-            print(" | ".join(columns))
+        self._display_expenses(expenses)
 
     def add_expense(self, amount, memo):
         with self._database_connect() as connection:
@@ -48,6 +51,26 @@ class ExpenseData():
                                 (amount, memo, date.today())
                             ) 
 
+    def search_expenses(self, query):
+        with self._database_connect() as connection:
+            with connection.cursor(cursor_factory=extras.DictCursor) as cursor:
+                sql = "SELECT * FROM expenses WHERE memo ILIKE %s"
+                cursor.execute(sql, (f"%{query}%",))
+                expenses = cursor.fetchall()
+
+        self._display_expenses(expenses)
+
+    def delete_expense(self, idnum):
+        with self._database_connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("SELECT * FROM expenses WHERE id = %s", (idnum,))
+                result = cursor.fetchone()
+                if result:
+                    cursor.execute("DETETE FROM expenses WHERE id = %s", (idnum,))
+                    print("The following expense has been deleted:")
+                    self._display_expenses([result])
+                else:
+                    print(f"There is no expense with id '{idnum}'.")
 class CLI():
     def __init__(self):
         self.application = ExpenseData()
@@ -82,6 +105,16 @@ class CLI():
                 self.application.add_expense(amount, memo)
             case "list":
                 self.application.list_expenses()
+            case "search":
+                if len(arguments) < 1:
+                    print("You must provide a search query.")
+                    return
+                self.application.search_expenses(arguments[0])
+            case "delete":
+                if len(arguments) < 1:
+                    print("You must provide an expense ID.")
+                    return
+                self.application.delete_expense(arguments[0])
             case _:
                 self.display_help()
 
