@@ -11,6 +11,29 @@ from psycopg2 import extras
 
 class ExpenseData():
 
+    def __init__(self):
+        self._setup_schema()
+
+    def _setup_schema(self):
+        with self._database_connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("""
+                    SELECT COUNT(*)
+                    FROM information_schema.tables
+                    WHERE table_schema = 'public' AND table_name = 'expenses';
+                """)
+                result = cursor.fetchone()
+                
+                if result[0] == 0:
+                    cursor.execute(""""
+                    CREATE TABLE expenses (
+                    id serial PRIMARY KEY,
+                    amount numeric(6,2) NOT NULL CHECK(amount >= 0.01),
+                    memo text NOT NULL,
+                    created_on date NOT NULL
+                    );
+                    """)
+
     @contextmanager
     def _database_connect(self):
         connection = psycopg2.connect(dbname='expenses')
@@ -31,16 +54,16 @@ class ExpenseData():
             print(" | ".join(columns))
 
     def list_expenses(self):
-        # connection = psycopg2.connect(dbname='expenses')
-        # try:
-        #     with connection:
         with self._database_connect() as connection:
             with connection.cursor(cursor_factory=extras.DictCursor) as cursor:
                 cursor.execute("""SELECT * FROM expenses 
                                     ORDER BY created_on""")
                 expenses = cursor.fetchall()
 
+        self._display_count(len(expenses))
         self._display_expenses(expenses)
+        if len(expenses) > 1:
+            self._display_total(expenses)
 
     def add_expense(self, amount, memo):
         with self._database_connect() as connection:
@@ -58,19 +81,42 @@ class ExpenseData():
                 cursor.execute(sql, (f"%{query}%",))
                 expenses = cursor.fetchall()
 
+        self._display_count(len(expenses))
         self._display_expenses(expenses)
+        if len(expenses) > 1:
+            self._display_total(expenses)
 
     def delete_expense(self, idnum):
         with self._database_connect() as connection:
-            with connection.cursor() as cursor:
+            with connection.cursor(cursor_factory=extras.DictCursor) as cursor:
                 cursor.execute("SELECT * FROM expenses WHERE id = %s", (idnum,))
                 result = cursor.fetchone()
                 if result:
-                    cursor.execute("DETETE FROM expenses WHERE id = %s", (idnum,))
+                    cursor.execute("DELETE FROM expenses WHERE id = %s", (idnum,))
                     print("The following expense has been deleted:")
                     self._display_expenses([result])
                 else:
                     print(f"There is no expense with id '{idnum}'.")
+
+    def delete_all_expenses(self):
+        with self._database_connect() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute("DELETE FROM expenses")
+                print("All expenses have been deleted.")    
+
+    def _display_count(self, count):
+        if count == 0:
+            print("There are no expenses.")
+        elif count == 1:
+            print("There is 1 expense.")
+        else:
+            print(f"There are {count} expenses.")
+
+    def _display_total(self, expenses):
+        amount_sum = sum([expense['amount'] for expense in expenses])
+        print("-" * 50)
+        print(f"Total {str(round(amount_sum, 2)).rjust(25)}")
+
 class CLI():
     def __init__(self):
         self.application = ExpenseData()
@@ -103,6 +149,11 @@ class CLI():
                     return 
                 amount, memo = arguments
                 self.application.add_expense(amount, memo)
+            case "clear":
+                print("This will remove all expenses. Are you sure? (enter y to confirm)")
+                response = input().strip()
+                if response.lower() == 'y':
+                    self.application.delete_all_expenses()
             case "list":
                 self.application.list_expenses()
             case "search":
